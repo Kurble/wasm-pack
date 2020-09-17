@@ -591,20 +591,13 @@ impl CrateData {
     fn npm_data(
         &self,
         scope: &Option<String>,
-        add_js_bg_to_package_json: bool,
+        _add_js_bg_to_package_json: bool,
         disable_dts: bool,
         out_dir: &Path,
     ) -> NpmData {
         let name_prefix = self.name_prefix();
-        let wasm_file = format!("{}_bg.wasm", name_prefix);
         let js_file = format!("{}.js", name_prefix);
-        let mut files = vec![wasm_file];
-
-        files.push(js_file.clone());
-        if add_js_bg_to_package_json {
-            let js_bg_file = format!("{}_bg.js", name_prefix);
-            files.push(js_bg_file);
-        }
+        let mut files = vec![];
 
         let pkg = &self.data.packages[self.current_idx];
         let npm_name = match scope {
@@ -614,7 +607,6 @@ impl CrateData {
 
         let dts_file = if !disable_dts {
             let file = format!("{}.d.ts", name_prefix);
-            files.push(file.to_string());
             Some(file)
         } else {
             None
@@ -629,10 +621,12 @@ impl CrateData {
         if let Ok(entries) = fs::read_dir(out_dir) {
             let file_names = entries
                 .filter_map(|e| e.ok())
-                .filter(|e| e.metadata().map(|m| m.is_file()).unwrap_or(false))
+                //.filter(|e| e.metadata().map(|m| m.is_file()).unwrap_or(false))
                 .filter_map(|e| e.file_name().into_string().ok())
-                .filter(|f| f.starts_with("LICENSE"))
-                .filter(|f| f != "LICENSE");
+                .filter(|f| !(f.ends_with(".d.ts") && disable_dts))
+                .filter(|f| f != ".gitignore")
+                .filter(|f| f != "package.json");
+
             for file_name in file_names {
                 files.push(file_name);
             }
@@ -644,7 +638,7 @@ impl CrateData {
             files,
             main: js_file,
             homepage: self.manifest.package.homepage.clone(),
-            keywords: keywords,
+            keywords,
         }
     }
 
